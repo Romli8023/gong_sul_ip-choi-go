@@ -1,50 +1,25 @@
-#!/usr/bin/env python3
-import time
-from ev3dev2.motor import LargeMotor, OUTPUT_A, SpeedPercent #OUTPUT_A 물리적인 포트 주소이기 떄문에 OUTPUT_B,C일수 도 있음
-from ev3dev2.sensor.lego import UltrasonicSensor, INPUT_1 #INPUT_1 또한 물리적인 포트 주소이기에 INPUT_2,3,4일 수도 있음
+#!/usr/bin/env pybricks-micropython
+from pybricks.hubs import EV3Brick
+from pybricks.ev3devices import Motor
+from pybricks.parameters import Port, Stop
 
-# 1. 모터와 센서를 EV3의 어느 포트에 연결했는지 확인 후 수정***
-# 예: 모터는 A 포트, 초음파 센서는 1번 포트
+# 1. EV3 브릭 및 모터 초기화
+ev3 = EV3Brick()
 
-motor = LargeMotor(OUTPUT_A)
-ultrasonic_sensor = UltrasonicSensor(INPUT_1)
+gripper_motor = Motor(Port.A) #포트에 따라서 A,B, C일수 있음
 
-# 2. 모터의 속도와 멈출 거리(임계값)를 설정
+# 2. 모터 작동 및 정지 알고리즘
+# 모터 회전 속도 (deg/s)
+SPEED = 45
 
-SPEED = 20  # 모터 속도 (0 ~ 100)
-DISTANCE_THRESHOLD = 30  # 물체가 이 거리(mm)보다 가까워지면 모터가 멈춤
+# 작동 시간 (ms 단위, 1000ms = 1초)
+# 1500ms는 1.5초를 의미합니다.
+RUN_TIME_MS = 1000
 
+# 지정된 속도로 지정된 시간만큼 모터를 작동시킨 후 자동으로 멈춥니다.
+# 마지막 인수인 'then=Stop.HOLD'는 모터가 멈춘 후 그 위치를 유지하도록 하여,
+# 컵을 꽉 잡은 상태를 유지하는 데 도움이 됩니다.
+gripper_motor.run_time(SPEED, RUN_TIME_MS, then=Stop.HOLD, wait=True)
 
-try:
-    print("로봇팔을 움직입니다. 컵을 감지하면 멈춥니다.")
-    
-    # 1. 먼저 모터를 설정한 속도로 작동
-    motor.on(SpeedPercent(SPEED))
-    
-    # 2. 무한 루프를 돌면서 거리를 계속 확인
-    while True:
-        # 현재 거리 측정
-        current_distance = ultrasonic_sensor.distance_millimeters
-        
-        # 측정된 거리를 화면에 출력합니다. (확인용)
-        print(f"현재 거리: {current_distance:.2f} mm")
-        
-        # 3. 만약 현재 거리가 설정한 임계값보다 작거나 같아지면,
-        if current_distance <= DISTANCE_THRESHOLD:
-            print("컵 감지! 모터를 정지합니다.")
-            
-            # 모터를 정지
-            motor.off()
-            
-            # 루프를 빠져나와 프로그램을 종료합니다.
-            break
-        
-        # 0.1초 동안 잠시 기다렸다가 다시 거리를 측정합니다. (CPU 과부하 방지)
-        time.sleep(0.1)
-
-except KeyboardInterrupt:
-    # Ctrl+C를 눌러 프로그램을 강제 종료할 경우 모터를 안전하게 멈춥니다.
-    print("프로그램이 강제 종료되었습니다.")
-    motor.off()
-
-#추가적으로 로봇팔 제어도 되어 있긴 하지만 일단 로봇팔 제어 코드 작성해 주세요.
+# 작업이 완료되었음을 알리는 비프음
+ev3.speaker.beep()

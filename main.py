@@ -20,24 +20,24 @@ from pybricks.tools import wait
 # Initialize the EV3 Brick.
 ev3 = EV3Brick()
 motor_pitch = Motor(Port.A)
-motor_yaw = Motor(Port.B)
+motor_yaw = Motor(Port.D)
 gyro_pitch = GyroSensor(Port.S1)
 gyro_yaw = GyroSensor(Port.S4)
 
-def calibrate_gyro(gyro):
+'''def calibrate_gyro(gyro):
     gyro.reset_angle(0)
     wait(2000)
-    gyro.reset_angle(0)
     ev3.speaker.beep()
 calibrate_gyro(gyro_pitch)
-calibrate_gyro(gyro_yaw)
+calibrate_gyro(gyro_yaw)'''
 
 
-Kp1 = 0.5
-Kp2 = 0.05
-Ki1 = 0.8
-Ki2 = 0.5 
-Kd1 = 0.05
+Kp1 = 0.6
+Ki1 = 0.05
+Kd1 = 0.8
+
+Kp2 = 0.5 
+Ki2 = 0.05
 Kd2 = 0.8
 
 integral_1 = 0
@@ -47,13 +47,13 @@ prev_error_2 = 0
 target_1 = 0
 target_2 = 0
 
-dt = 20
+dt=20
 
 while True:
     angle_1 = gyro_pitch.angle()
-    error_1 = target_1 - angle_1
-    integral_1 += error_1*dt
-    devitation_1 = (error_1 - prev_error_1) /dt
+    '''error_1 = target_1 - angle_1
+    integral_1 += error_1
+    devitation_1 = (error_1 - prev_error_1) 
     prev_error_1 = error_1
 
     output_1 = Kp1*error_1 + Ki1*integral_1 + Kd1*devitation_1
@@ -61,32 +61,32 @@ while True:
     if output_1 >900: 
         output_1 =900
     elif output_1<-900: 
-        output_1 =-900
-
+        output_1 =-900'''
+    
     angle_2 = gyro_yaw.angle()
-    error_2 = target_2 - angle_2
+    '''error_2 = target_2 - angle_2
     integral_2 += error_2*dt
     devitation_2 = (error_2 - prev_error_2)/dt
     prev_error_2 = error_2
 
     output_2 = Kp2*error_2 +  Ki2*integral_2 + Kd2*devitation_2
 
-    if output_2 >600: 
-        output_2 =600
-    elif output_2<-600: 
-        output_2 =-600
-
+    if output_2 > 600: 
+        output_2 = 600
+    elif output_2 < -600: 
+        output_2 = -600
+    
     motor_pitch.run(output_1)
-    motor_yaw.run (output_2)
+    motor_yaw.run (output_2)'''
 
 
     ev3.screen.clear()
     ev3.screen.print("Angle_1:",angle_1)
-    ev3.screen.print("Output_1:",output_1)
+    #ev3.screen.print("Output_1:",output_1)
     ev3.screen.print("Angle_2:",angle_2)
-    ev3.screen.print("Output_2:",output_2)
-    if abs(gyro_pitch.speed()) < 1 and abs(error_1) < 1:
+    #ev3.screen.print("Output_2:",output_2)
+    '''if abs(gyro_pitch.speed()) < 1 and abs(error_1) < 1:
         gyro_pitch.reset_angle(0)
     if abs(gyro_yaw.speed()) < 1 and abs(error_2) < 1:
-        gyro_yaw.reset_angle(0)
+        gyro_yaw.reset_angle(0)'''
     wait(dt)

@@ -1,92 +1,107 @@
 #!/usr/bin/env pybricks-micropython
 
-"""
-Example LEGO® MINDSTORMS® EV3 Robot Educator Driving Base Program
------------------------------------------------------------------
-
-This program requires LEGO® EV3 MicroPython v2.0.
-Download: https://education.lego.com/en-us/support/mindstorms-ev3/python-for-ev3
-
-Building instructions can be found at:
-https://education.lego.com/en-us/support/mindstorms-ev3/building-instructions#robot
-"""
-
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor, GyroSensor
-from pybricks.parameters import Port, Stop
-from pybricks.robotics import DriveBase
+from pybricks.parameters import Port
 from pybricks.tools import wait
 
-# Initialize the EV3 Brick.
+# ==== HẰNG SỐ ====
+MAX_INTEGRAL = 100
+MAX_OUTPUT = 720
+DEADBAND = 1
+
+LOOP_DT_MS = 10
+LOOP_DT_S = LOOP_DT_MS / 1000  # 0.01s
+
+# PID gains (bắt đầu đơn giản)
+Kp = 7.0
+Ki = 0.04   # để 0 trước, khi ổn rồi hãy tăng nhẹ
+Kd = 0.6
+
 ev3 = EV3Brick()
-motor_pitch = Motor(Port.A)
-motor_yaw = Motor(Port.D)
-gyro_pitch = GyroSensor(Port.S1)
-gyro_yaw = GyroSensor(Port.S4)
+motor_roll = Motor(Port.A)
+gyro_roll = GyroSensor(Port.S4)
 
-'''def calibrate_gyro(gyro):
-    gyro.reset_angle(0)
-    wait(2000)
+integral = 0
+prev_error = 0
+target = 0
+
+def init_gyro_and_bias():
+    ev3.screen.clear()
+    ev3.screen.print("Init gyro...")
     ev3.speaker.beep()
-calibrate_gyro(gyro_pitch)
-calibrate_gyro(gyro_yaw)'''
 
+    # Đặt robot lên bàn, KHÔNG ĐỤNG
+    wait(1000)
+    gyro_roll.reset_angle(0)
+    wait(500)
 
-Kp1 = 0.6
-Ki1 = 0.05
-Kd1 = 0.8
-
-Kp2 = 0.5 
-Ki2 = 0.05
-Kd2 = 0.8
-
-integral_1 = 0
-integral_2 = 0
-prev_error_1 = 0
-prev_error_2 = 0
-target_1 = 0
-target_2 = 0
-
-dt=20
-
-while True:
-    angle_1 = gyro_pitch.angle()
-    '''error_1 = target_1 - angle_1
-    integral_1 += error_1
-    devitation_1 = (error_1 - prev_error_1) 
-    prev_error_1 = error_1
-
-    output_1 = Kp1*error_1 + Ki1*integral_1 + Kd1*devitation_1
-    
-    if output_1 >900: 
-        output_1 =900
-    elif output_1<-900: 
-        output_1 =-900'''
-    
-    angle_2 = gyro_yaw.angle()
-    '''error_2 = target_2 - angle_2
-    integral_2 += error_2*dt
-    devitation_2 = (error_2 - prev_error_2)/dt
-    prev_error_2 = error_2
-
-    output_2 = Kp2*error_2 +  Ki2*integral_2 + Kd2*devitation_2
-
-    if output_2 > 600: 
-        output_2 = 600
-    elif output_2 < -600: 
-        output_2 = -600
-    
-    motor_pitch.run(output_1)
-    motor_yaw.run (output_2)'''
-
+    # Đo bias của speed
+    ev3.screen.clear()
+    ev3.screen.print("Measuring bias")
+    bias = 0
+    samples = 100
+    total = 0
+    for _ in range(samples):
+        total += gyro_roll.speed()
+        wait(10)
+    bias = total / samples
 
     ev3.screen.clear()
-    ev3.screen.print("Angle_1:",angle_1)
-    #ev3.screen.print("Output_1:",output_1)
-    ev3.screen.print("Angle_2:",angle_2)
-    #ev3.screen.print("Output_2:",output_2)
-    '''if abs(gyro_pitch.speed()) < 1 and abs(error_1) < 1:
-        gyro_pitch.reset_angle(0)
-    if abs(gyro_yaw.speed()) < 1 and abs(error_2) < 1:
-        gyro_yaw.reset_angle(0)'''
-    wait(dt)
+    ev3.screen.print("Bias:", int(bias))
+    ev3.speaker.beep(frequency=800, duration=200)
+
+    return bias
+
+# ==== KHỞI TẠO ====
+bias = init_gyro_and_bias()
+
+# Góc ước lượng bằng tay
+angle_est = 0
+
+while True:
+    # 1. Đọc tốc độ quay
+    raw_rate = gyro_roll.speed()
+    rate = raw_rate - bias     # trừ offset
+
+    # 2. Tự tích phân để tính góc
+    angle_est += rate * LOOP_DT_S
+
+    # 3. Tính error
+    error = angle_est - target
+
+    if abs(error) < DEADBAND:
+        error = 0
+
+    # 4. PID
+    P_term = Kp * error
+
+    integral += error
+    if integral > MAX_INTEGRAL:
+        integral = MAX_INTEGRAL
+    elif integral < -MAX_INTEGRAL:
+        integral = -MAX_INTEGRAL
+    I_term = Ki * integral
+
+    derivative = error - prev_error
+    D_term = Kd * derivative
+    prev_error = error
+
+    output = P_term + I_term + D_term
+
+    if output > MAX_OUTPUT:
+        output = MAX_OUTPUT
+    elif output < -MAX_OUTPUT:
+        output = -MAX_OUTPUT
+
+    motor_roll.run(-output)
+
+    # Debug
+    ev3.screen.clear()
+    ev3.screen.print("Rate:", int(rate))
+    ev3.screen.print("Ang*:", int(angle_est))
+    ev3.screen.print("Err:", int(error))
+    ev3.screen.print("Out:", int(output))
+    ev3.screen.print("Bias:", int(bias))
+
+    wait(LOOP_DT_MS)

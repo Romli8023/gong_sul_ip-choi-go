@@ -5,72 +5,103 @@ from pybricks.ev3devices import Motor, GyroSensor
 from pybricks.parameters import Port
 from pybricks.tools import wait
 
-# --- 1. 하드웨어 및 변수 초기화 ---
+# ==== 상수 ====
+MAX_INTEGRAL = 100
+MAX_OUTPUT = 720
+DEADBAND = 1
+
+LOOP_DT_MS = 10
+LOOP_DT_S = LOOP_DT_MS / 1000  # 0.01초
+
+# PID 게인 (기본값)
+Kp = 7.0
+Ki = 0.04   # 초반에는 0으로 두고 안정되면 조금씩 증가
+Kd = 0.6
+
 ev3 = EV3Brick()
-motor_pitch = Motor(Port.A)
-motor_yaw = Motor(Port.D)
-gyro_pitch = GyroSensor(Port.S1)
-gyro_yaw = GyroSensor(Port.S4)
+motor_roll = Motor(Port.A)
+gyro_roll = GyroSensor(Port.S4)
 
-# PID 제어 상수 (이 값들을 조절하며 최적의 성능을 찾아야 합니다)
-# Pitch 축 (모터 A, 센서 S1)
-Kp1 = 1.2  # 비례 상수: 오차에 비례하여 힘을 조절 (가장 중요)
-Ki1 = 0.1  # 적분 상수: 남아있는 미세한 오차를 없앰
-Kd1 = 0.5  # 미분 상수: 급격한 움직임을 억제하고 안정성을 높임
+integral = 0
+prev_error = 0
+target = 0
 
-# Yaw(Roll) 축 (모터 D, 센서 S4)
-Kp2 = 1.2
-Ki2 = 0.1
-Kd2 = 0.5
-
-# PID 계산을 위한 변수들
-integral_1, integral_2 = 0, 0
-prev_error_1, prev_error_2 = 0, 0
-target_1, target_2 = 0, 0 # 목표 각도는 0도 (수평)
-
-# --- 2. 시작 전 센서 초기화 함수 ---
-def initialize_sensors():
-    """프로그램 시작 시 센서 영점을 설정합니다."""
+def init_gyro_and_bias():
+    ev3.screen.clear()
+    ev3.screen.print("Init gyro...")
     ev3.speaker.beep()
-    gyro_pitch.reset_angle(0)
-    gyro_yaw.reset_angle(0)
-    wait(1000) # 센서가 안정될 때까지 대기
+
+    # 바닥에 고정하고 센서를 건드리지 않기
+    wait(1000)
+    gyro_roll.reset_angle(0)
+    wait(500)
+
+    # 자이로 속도의 바이어스 측정
+    ev3.screen.clear()
+    ev3.screen.print("Measuring bias")
+    bias = 0
+    samples = 100
+    total = 0
+    for _ in range(samples):
+        total += gyro_roll.speed()
+        wait(10)
+    bias = total / samples
+
+    ev3.screen.clear()
+    ev3.screen.print("Bias:", int(bias))
     ev3.speaker.beep(frequency=800, duration=200)
 
-# --- 3. 메인 제어 루프 ---
-initialize_sensors() # 프로그램 시작 시 초기화 실행
+    return bias
+
+# ==== 초기화 ====
+bias = init_gyro_and_bias()
+
+# 속도를 적분하여 추정 각도 계산
+angle_est = 0
 
 while True:
-    # 현재 각도 읽기
-    angle_1 = gyro_pitch.angle()
-    angle_2 = gyro_yaw.angle()
+    # 1. 자이로 회전 속도 읽기
+    raw_rate = gyro_roll.speed()
+    rate = raw_rate - bias     # 바이어스 제거
 
-    # --- Pitch 축 PID 제어 계산 ---
-    error_1 = target_1 - angle_1
-    integral_1 += error_1
-    deviation_1 = error_1 - prev_error_1
-    prev_error_1 = error_1
-    
-    # 최종 모터 출력 계산
-    output_1 = Kp1 * error_1 + Ki1 * integral_1 + Kd1 * deviation_1
-    
-    # --- Yaw(Roll) 축 PID 제어 계산 ---
-    error_2 = target_2 - angle_2
-    integral_2 += error_2
-    deviation_2 = error_2 - prev_error_2
-    prev_error_2 = error_2
+    # 2. 각도 추정 (적분)
+    angle_est += rate * LOOP_DT_S
 
-    # 최종 모터 출력 계산
-    output_2 = Kp2 * error_2 + Ki2 * integral_2 + Kd2 * deviation_2
+    # 3. 오차 계산
+    error = angle_est - target
 
-    # --- 모터 구동 ---
-    # run() 메소드는 모터의 속도를 제어합니다. 계산된 output 값을 속도로 사용합니다.
-    motor_pitch.run(output_1)
-    motor_yaw.run(output_2)
+    if abs(error) < DEADBAND:
+        error = 0
 
-    # --- 상태 출력 (디버깅용) ---
+    # 4. PID 계산
+    P_term = Kp * error
+
+    integral += error
+    if integral > MAX_INTEGRAL:
+        integral = MAX_INTEGRAL
+    elif integral < -MAX_INTEGRAL:
+        integral = -MAX_INTEGRAL
+    I_term = Ki * integral
+
+    derivative = error - prev_error
+    D_term = Kd * derivative
+    prev_error = error
+
+    output = P_term + I_term + D_term
+
+    if output > MAX_OUTPUT:
+        output = MAX_OUTPUT
+    elif output < -MAX_OUTPUT:
+        output = -MAX_OUTPUT
+
+    motor_roll.run(-output)
+
+    # 디버그 출력
     ev3.screen.clear()
-    ev3.screen.print("Pitch Angle:", angle_1)
-    ev3.screen.print("Yaw Angle:  ", angle_2)
-    
-    wait(10) # 루프 지연 시간 (너무 짧으면 불안정, 길면 반응이 느림)
+    ev3.screen.print("Rate:", int(rate))
+    ev3.screen.print("Ang*:", int(angle_est))
+    ev3.screen.print("Err:", int(error))
+    ev3.screen.print("Out:", int(output))
+    ev3.screen.print("Bias:", int(bias))
+
+    wait(LOOP_DT_MS)

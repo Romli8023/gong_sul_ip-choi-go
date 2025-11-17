@@ -11,7 +11,7 @@ GRAB_SPEED = 100
 # 열린 상태 각도
 OPEN_POS = 0
 # 닫힌 상태 각도 (컵을 잡는 각도)
-CLOSE_POS = 45
+CLOSE_POS = 60
 
 # ==== 초기화 ====
 ev3 = EV3Brick()
@@ -45,7 +45,6 @@ while True:
 
     # 2. 컵 감지됨 -> 팔 닫기
     motor_cup.run_target(GRAB_SPEED, CLOSE_POS, then=Stop.HOLD, wait=True)
-    print("Closed.")
 
     # 3. 컵 제거 대기 (터치 센서가 떨어질 때까지)
     while cup_sensor.pressed():
@@ -53,7 +52,6 @@ while True:
 
     # 4. 컵 제거됨 -> 팔 열기
     motor_cup.run_target(GRAB_SPEED, OPEN_POS, then=Stop.HOLD, wait=True)
-    print("Opened.")
     
     # 다음 루프 전 잠시 대기
     wait(500)

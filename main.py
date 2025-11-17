@@ -1,21 +1,20 @@
 #!/usr/bin/env pybricks-micropython
 
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor, GyroSensor
-from pybricks.parameters import Port
-from pybricks.tools import wait
+from pybricks.ev3devices import Motor
+from pybricks.parameters import Port, Stop
 
-# ==== HẰNG SỐ ====
+# ==== 상수 ====
 MAX_INTEGRAL = 100
 MAX_OUTPUT = 720
 DEADBAND = 1
 
 LOOP_DT_MS = 10
-LOOP_DT_S = LOOP_DT_MS / 1000  # 0.01s
+LOOP_DT_S = LOOP_DT_MS / 1000  # 0.01초
 
-# PID gains (bắt đầu đơn giản)
+# PID 게인 (기본값)
 Kp = 7.0
-Ki = 0.04   # để 0 trước, khi ổn rồi hãy tăng nhẹ
+Ki = 0.04   # 초반에는 0으로 두고 안정되면 조금씩 증가
 Kd = 0.6
 
 ev3 = EV3Brick()
@@ -31,12 +30,12 @@ def init_gyro_and_bias():
     ev3.screen.print("Init gyro...")
     ev3.speaker.beep()
 
-    # Đặt robot lên bàn, KHÔNG ĐỤNG
+    # 바닥에 고정하고 센서를 건드리지 않기
     wait(1000)
     gyro_roll.reset_angle(0)
     wait(500)
 
-    # Đo bias của speed
+    # 자이로 속도의 바이어스 측정
     ev3.screen.clear()
     ev3.screen.print("Measuring bias")
     bias = 0
@@ -53,27 +52,27 @@ def init_gyro_and_bias():
 
     return bias
 
-# ==== KHỞI TẠO ====
+# ==== 초기화 ====
 bias = init_gyro_and_bias()
 
-# Góc ước lượng bằng tay
+# 속도를 적분하여 추정 각도 계산
 angle_est = 0
 
 while True:
-    # 1. Đọc tốc độ quay
+    # 1. 자이로 회전 속도 읽기
     raw_rate = gyro_roll.speed()
-    rate = raw_rate - bias     # trừ offset
+    rate = raw_rate - bias     # 바이어스 제거
 
-    # 2. Tự tích phân để tính góc
+    # 2. 각도 추정 (적분)
     angle_est += rate * LOOP_DT_S
 
-    # 3. Tính error
+    # 3. 오차 계산
     error = angle_est - target
 
     if abs(error) < DEADBAND:
         error = 0
 
-    # 4. PID
+    # 4. PID 계산
     P_term = Kp * error
 
     integral += error
@@ -96,7 +95,7 @@ while True:
 
     motor_roll.run(-output)
 
-    # Debug
+    # 디버그 출력
     ev3.screen.clear()
     ev3.screen.print("Rate:", int(rate))
     ev3.screen.print("Ang*:", int(angle_est))

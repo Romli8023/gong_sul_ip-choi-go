@@ -1,107 +1,99 @@
-#!/usr/bin/env pybricks-micropython
-
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor, GyroSensor
-from pybricks.parameters import Port
-from pybricks.tools import wait
+from pybricks.ev3devices import Motor, ColorSensor
+from pybricks.parameters import Port, Stop, Direction, Color
+from pybricks.tools import wait, StopWatch
 
-# ==== 상수 ====
-MAX_INTEGRAL = 100
-MAX_OUTPUT = 720
-DEADBAND = 1
+LEFT_MOTOR_PORT = Port.A
+RIGHT_MOTOR_PORT = Port.B
+SENSOR_PORT = Port.S4
 
-LOOP_DT_MS = 10
-LOOP_DT_S = LOOP_DT_MS / 1000  # 0.01초
+# 목표 값 설정
+TARGET_LIGHT_INTENSITY = 50  # 라인 트레이싱 목표 반사광 값
+BASE_SPEED = 150             # 로봇의 기본 주행 속도
 
-# PID 게인 (기본값)
-Kp = 7.0
-Ki = 0.04   # 초반에는 0으로 두고 안정되면 조금씩 증가
-Kd = 0.6
+# PID 게인 값 설정
+KP = 1.2   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
+KI = 0.001 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
+KD = 0.5   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
 
+# PID 클래스 정의
+class PIDController:
+    def __init__(self, kp, ki, kd, target):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.target = target
+        
+        self.prev_error = 0
+        self.integral = 0
+        self.watch = StopWatch() # 시간 측정을 위한 스톱워치
+        self.watch.reset()
+
+    def compute(self, current_value):
+        # dt (시간 변화량) 계산 - 초 단위
+        dt = self.watch.time() / 1000.0 
+        self.watch.reset()
+        
+        # dt가 너무 작으면(0이면) 계산 오류 방지
+        if dt <= 0: dt = 0.001
+
+        # 1. 오차(Error) 계산
+        error = self.target - current_value
+        
+        # 2. 비례(P) 항
+        p_term = error * self.kp
+        
+        # 3. 적분(I) 항
+        self.integral += error * dt
+        i_term = self.integral * self.ki
+        
+        # 4. 미분(D) 항
+        derivative = (error - self.prev_error) / dt
+        d_term = derivative * self.kd
+        
+        # 5. 업데이트
+        self.prev_error = error
+        
+        # 6. 최종 출력 (Turn Value)
+        output = p_term + i_term + d_term
+        return output
+
+# 3. 초기화 (Initialization)
 ev3 = EV3Brick()
-motor_roll = Motor(Port.A)
-gyro_roll = GyroSensor(Port.S4)
+left_motor = Motor(LEFT_MOTOR_PORT)
+right_motor = Motor(RIGHT_MOTOR_PORT)
 
-integral = 0
-prev_error = 0
-target = 0
+line_sensor = ColorSensor(SENSOR_PORT)
 
-def init_gyro_and_bias():
-    ev3.screen.clear()
-    ev3.screen.print("Init gyro...")
-    ev3.speaker.beep()
+# PID 컨트롤러 인스턴스 생성
+steering_pid = PIDController(KP, KI, KD, TARGET_LIGHT_INTENSITY)
 
-    # 바닥에 고정하고 센서를 건드리지 않기
-    wait(1000)
-    gyro_roll.reset_angle(0)
-    wait(500)
+# 시작 알림
+ev3.speaker.beep()
+print("PID Control Started...")
 
-    # 자이로 속도의 바이어스 측정
-    ev3.screen.clear()
-    ev3.screen.print("Measuring bias")
-    bias = 0
-    samples = 100
-    total = 0
-    for _ in range(samples):
-        total += gyro_roll.speed()
-        wait(10)
-    bias = total / samples
-
-    ev3.screen.clear()
-    ev3.screen.print("Bias:", int(bias))
-    ev3.speaker.beep(frequency=800, duration=200)
-
-    return bias
-
-# ==== 초기화 ====
-bias = init_gyro_and_bias()
-
-# 속도를 적분하여 추정 각도 계산
-angle_est = 0
-
+# 4. 메인 루프 (Main Loop)
 while True:
-    # 1. 자이로 회전 속도 읽기
-    raw_rate = gyro_roll.speed()
-    rate = raw_rate - bias     # 바이어스 제거
-
-    # 2. 각도 추정 (적분)
-    angle_est += rate * LOOP_DT_S
-
-    # 3. 오차 계산
-    error = angle_est - target
-
-    if abs(error) < DEADBAND:
-        error = 0
-
-    # 4. PID 계산
-    P_term = Kp * error
-
-    integral += error
-    if integral > MAX_INTEGRAL:
-        integral = MAX_INTEGRAL
-    elif integral < -MAX_INTEGRAL:
-        integral = -MAX_INTEGRAL
-    I_term = Ki * integral
-
-    derivative = error - prev_error
-    D_term = Kd * derivative
-    prev_error = error
-
-    output = P_term + I_term + D_term
-
-    if output > MAX_OUTPUT:
-        output = MAX_OUTPUT
-    elif output < -MAX_OUTPUT:
-        output = -MAX_OUTPUT
-
-    motor_roll.run(-output)
-
-    # 디버그 출력
-    ev3.screen.clear()
-    ev3.screen.print("Rate:", int(rate))
-    ev3.screen.print("Ang*:", int(angle_est))
-    ev3.screen.print("Err:", int(error))
-    ev3.screen.print("Out:", int(output))
-    ev3.screen.print("Bias:", int(bias))
-
-    wait(LOOP_DT_MS)
+    # 1. 센서 값 읽기 (반사광)
+    current_light = line_sensor.reflection()
+    
+    # 2. PID 계산 (조향 값 산출)
+    # 목표값보다 어두우면 -> 한쪽으로 회전
+    # 목표값보다 밝으면 -> 반대로 회전
+    turn_rate = steering_pid.compute(current_light)
+    
+    # 3. 모터 파워 계산 (2축 제어: 속도 + 조향)
+    
+    # 출력 제한 (Clamping): 너무 급격한 회전 방지 (옵션)
+    # if turn_rate > 100: turn_rate = 100
+    # if turn_rate < -100: turn_rate = -100
+    
+    left_speed = BASE_SPEED + turn_rate
+    right_speed = BASE_SPEED - turn_rate
+    
+    # 4. 모터 구동
+    left_motor.run(left_speed)
+    right_motor.run(right_speed)
+    
+    # 5. 연산 주기 조절 (너무 빠르면 센서 노이즈에 민감해짐)
+    wait(10)

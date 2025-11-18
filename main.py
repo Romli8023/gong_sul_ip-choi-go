@@ -2,7 +2,7 @@
 
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor, GyroSensor
-from pybricks.parameters import Port
+from pybricks.parameters import Port,Stop
 from pybricks.tools import wait
 
 # ====== CONSTANTS ======
@@ -14,8 +14,8 @@ LOOP_DT_MS = 10
 LOOP_DT_S = LOOP_DT_MS / 1000
 
 # ====== PID GAINS TRỤC ROLL (OX) ======
-Kp_R = 2.5
-Ki_R = 0.01
+Kp_R = 2.0
+Ki_R = 0.04
 Kd_R = 0.6
 
 # ====== PID GAINS TRỤC PITCH (OY) ======
@@ -32,23 +32,30 @@ motor_pitch = Motor(Port.B)   # Trục Y
 gyro_roll  = GyroSensor(Port.S3)
 gyro_pitch = GyroSensor(Port.S4)
 
+integral_roll = 0
+prev_error_roll = 0
+target_roll = 0
+
+integral_pitch = 0
+prev_error_pitch = 0
+target_pitch = 0
+
+
 
 # ====== GYRO INIT + BIAS ======
-def init_gyro_and_bias():
+def init_gyro_and_bias(gyro, name):
     ev3.screen.clear()
-    ev3.screen.print("Init gyro...")
+    ev3.screen.print("Init", name)
     ev3.speaker.beep()
 
-    # 바닥에 고정하고 센서를 건드리지 않기
-    wait(1000)
+    # ĐẶT HOÀN TOÀN YÊN, KHÔNG ĐỤNG!
+    wait(3000)
     gyro.reset_angle(0)
-    wait(500)
+    wait(3000)  # cho nó ổn định thêm
 
-    # 자이로 속도의 바이어스 측정
     ev3.screen.clear()
-    ev3.screen.print("Measuring bias")
-    bias = 0
-    samples = 100
+    ev3.screen.print("Measuring", name)
+    samples = 300
     total = 0
     for _ in range(samples):
         total += gyro.speed()
@@ -56,7 +63,7 @@ def init_gyro_and_bias():
     bias = total / samples
 
     ev3.screen.clear()
-    ev3.screen.print("Bias:", int(bias))
+    ev3.screen.print(name, "Bias:", int(bias))
     ev3.speaker.beep(frequency=800, duration=200)
 
     return bias
@@ -68,14 +75,8 @@ bias_pitch = init_gyro_and_bias(gyro_pitch, "Pitch")
 
 # ====== STATE VARIABLES ======
 angle_roll = 0
-integral_roll = 0
-prev_error_roll = 0
-target_roll = 0
 
 angle_pitch = 0
-integral_pitch = 0
-prev_error_pitch = 0
-target_pitch = 0
 
 
 # ---------------------------

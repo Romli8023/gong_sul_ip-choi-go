@@ -5,27 +5,35 @@ from pybricks.ev3devices import Motor, GyroSensor
 from pybricks.parameters import Port
 from pybricks.tools import wait
 
-# ==== 상수 ====
+# ====== CONSTANTS ======
 MAX_INTEGRAL = 100
 MAX_OUTPUT = 720
 DEADBAND = 1
 
 LOOP_DT_MS = 10
-LOOP_DT_S = LOOP_DT_MS / 1000  # 0.01초
+LOOP_DT_S = LOOP_DT_MS / 1000
 
-# PID 게인 (기본값)
-Kp = 2.5
-Ki = 0.01 # 초반에는 0으로 두고 안정되면 조금씩 증가
-Kd = 0.6
+# ====== PID GAINS TRỤC ROLL (OX) ======
+Kp_R = 2.5
+Ki_R = 0.01
+Kd_R = 0.6
+
+# ====== PID GAINS TRỤC PITCH (OY) ======
+Kp_P = 3.0
+Ki_P = 0.015
+Kd_P = 0.55
 
 ev3 = EV3Brick()
-motor_roll = Motor(Port.A)
-gyro_roll = GyroSensor(Port.S4)
 
-integral = 0
-prev_error = 0
-target = 0
+# ====== HARDWARE ======
+motor_roll  = Motor(Port.A)   # Trục X
+motor_pitch = Motor(Port.B)   # Trục Y
 
+gyro_roll  = GyroSensor(Port.S3)
+gyro_pitch = GyroSensor(Port.S4)
+
+
+# ====== GYRO INIT + BIAS ======
 def init_gyro_and_bias():
     ev3.screen.clear()
     ev3.screen.print("Init gyro...")
@@ -33,7 +41,7 @@ def init_gyro_and_bias():
 
     # 바닥에 고정하고 센서를 건드리지 않기
     wait(1000)
-    gyro_roll.reset_angle(0)
+    gyro.reset_angle(0)
     wait(500)
 
     # 자이로 속도의 바이어스 측정
@@ -43,7 +51,7 @@ def init_gyro_and_bias():
     samples = 100
     total = 0
     for _ in range(samples):
-        total += gyro_roll.speed()
+        total += gyro.speed()
         wait(10)
     bias = total / samples
 
@@ -53,55 +61,72 @@ def init_gyro_and_bias():
 
     return bias
 
-# ==== 초기화 ====
-bias = init_gyro_and_bias()
 
-# 속도를 적분하여 추정 각도 계산
-angle_est = 0
+bias_roll  = init_gyro_and_bias(gyro_roll,  "Roll")
+bias_pitch = init_gyro_and_bias(gyro_pitch, "Pitch")
 
+
+# ====== STATE VARIABLES ======
+angle_roll = 0
+integral_roll = 0
+prev_error_roll = 0
+target_roll = 0
+
+angle_pitch = 0
+integral_pitch = 0
+prev_error_pitch = 0
+target_pitch = 0
+
+
+# ---------------------------
+# ------- MAIN LOOP ---------
+# ---------------------------
 while True:
-    # 1. 자이로 회전 속도 읽기
-    raw_rate = gyro_roll.speed()
-    rate = raw_rate - bias     # 바이어스 제거
 
-    # 2. 각도 추정 (적분)
-    angle_est += rate * LOOP_DT_S
+    # ====== READ GYRO RATE ======
+    rate_roll  = gyro_roll.speed()  - bias_roll
+    rate_pitch = gyro_pitch.speed() - bias_pitch
 
-    # 3. 오차 계산
-    error = angle_est - target
+    # ====== INTEGRATE ANGLE ======
+    angle_roll  += rate_roll  * LOOP_DT_S
+    angle_pitch += rate_pitch * LOOP_DT_S
 
-    if abs(error) < DEADBAND:
-        error = 0
+    # ====== ERROR ======
+    error_roll  = angle_roll  - target_roll
+    error_pitch = angle_pitch - target_pitch
 
-    # 4. PID 계산
-    P_term = Kp * error
+    if abs(error_roll) < DEADBAND: error_roll = 0
+    if abs(error_pitch) < DEADBAND: error_pitch = 0
 
-    integral += error
-    if integral > MAX_INTEGRAL:
-        integral = MAX_INTEGRAL
-    elif integral < -MAX_INTEGRAL:
-        integral = -MAX_INTEGRAL
-    I_term = Ki * integral
+    # ====== PID ROLL (Ox) ======
+    P_r = Kp_R * error_roll
+    integral_roll += error_roll
+    integral_roll = max(min(integral_roll, MAX_INTEGRAL), -MAX_INTEGRAL)
+    I_r = Ki_R * integral_roll
+    D_r = Kd_R * (error_roll - prev_error_roll)
+    prev_error_roll = error_roll
 
-    derivative = error - prev_error
-    D_term = Kd * derivative
-    prev_error = error
+    output_roll = max(min(P_r + I_r + D_r, MAX_OUTPUT), -MAX_OUTPUT)
 
-    output = P_term + I_term + D_term
+    # ====== PID PITCH (Oy) ======
+    P_p = Kp_P * error_pitch
+    integral_pitch += error_pitch
+    integral_pitch = max(min(integral_pitch, MAX_INTEGRAL), -MAX_INTEGRAL)
+    I_p = Ki_P * integral_pitch
+    D_p = Kd_P * (error_pitch - prev_error_pitch)
+    prev_error_pitch = error_pitch
 
-    if output > MAX_OUTPUT:
-        output = MAX_OUTPUT
-    elif output < -MAX_OUTPUT:
-        output = -MAX_OUTPUT
+    output_pitch = max(min(P_p + I_p + D_p, MAX_OUTPUT), -MAX_OUTPUT)
 
-    motor_roll.run(-output)
+    # ====== MOTOR OUTPUT ======
+    motor_roll.run(-output_roll)
+    motor_pitch.run(-output_pitch)
 
-    # 디버그 출력
+    # ====== DEBUG ======
     ev3.screen.clear()
-    ev3.screen.print("Rate:", int(rate))
-    ev3.screen.print("Ang*:", int(angle_est))
-    ev3.screen.print("Err:", int(error))
-    ev3.screen.print("Out:", int(output))
-    ev3.screen.print("Bias:", int(bias))
+    ev3.screen.print("ROLL out:",  int(output_roll))
+    ev3.screen.print("PITCH out:", int(output_pitch))
+    ev3.screen.print("R ang:", int(angle_roll))
+    ev3.screen.print("P ang:", int(angle_pitch))
 
     wait(LOOP_DT_MS)

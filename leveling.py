@@ -69,7 +69,6 @@ left_motor = Motor(LEFT_MOTOR_PORT)
 right_motor = Motor(RIGHT_MOTOR_PORT)
 
 # 자이로 센서 2개 초기화
-# 주의: 자이로 센서는 초기화 시 절대 움직이면 안 됩니다.
 ev3.speaker.beep() 
 print("Calibrating Gyros... Do not move")
 
@@ -90,28 +89,41 @@ pid_right = PIDController(KP, KI, KD, TARGET_ANGLE)
 ev3.speaker.beep()
 print("PID Control Started...")
 
+# ==========================================
 # 4. 메인 루프 (듀얼 센서 피드백)
+# ==========================================
 while True:
-    # 1. 센서 값 읽기 (반사광)
-    current_light = line_sensor.reflection()
+    # 1. 각 센서값 읽기
+    # 왼쪽 센서와 오른쪽 센서가 읽는 값이 미세하게 다를 수 있습니다.
+    angle_l = left_gyro.angle()
+    angle_r = right_gyro.angle()
     
-    # 2. PID 계산 (조향 값 산출)
-    # 목표값보다 어두우면 -> 한쪽으로 회전
-    # 목표값보다 밝으면 -> 반대로 회전
-    turn_rate = steering_pid.compute(current_light)
+    # 2. 각각 PID 계산
+    # PID 출력값은 "목표 각도로 가기 위해 필요한 힘의 보정치"입니다.
+    correction_l = pid_left.compute(angle_l)
+    correction_r = pid_right.compute(angle_r)
     
-    # 3. 모터 파워 계산 (2축 제어: 속도 + 조향)
+    # 3. 모터 출력 적용 (로직 중요!)
+    # 시나리오: 로봇이 오른쪽으로 틀어짐 (Angle > 0)
+    # -> 왼쪽 모터는 느려져야 하고 (또는 뒤로), 오른쪽 모터는 빨라져야(앞으로) 함
     
-    # 출력 제한 (Clamping): 너무 급격한 회전 방지 (옵션)
-    # if turn_rate > 100: turn_rate = 100
-    # if turn_rate < -100: turn_rate = -100
+    # correction 값이 양수(+)일 때: "목표보다 각도가 작다(왼쪽을 보고 있다)" -> 오른쪽으로 돌려야 함
+    # -> 왼쪽 모터 속도 증가, 오른쪽 모터 속도 감소
     
-    left_speed = BASE_SPEED + turn_rate
-    right_speed = BASE_SPEED - turn_rate
+    # correction 값이 음수(-)일 때: "목표보다 각도가 크다(오른쪽을 보고 있다)" -> 왼쪽으로 돌려야 함
+    # -> 왼쪽 모터 속도 감소, 오른쪽 모터 속도 증가
+    
+    # (참고: PID 수식에서 error = target - current 이므로, 
+    #  오른쪽으로 틀어지면(current > 0), error는 음수, correction도 음수가 나옴)
+    
+    # 왼쪽 모터: 보정값이 음수(우회전상태)면 더 느리게 -> 더하기(+)를 하면 됨 (음수를 더하므로 감속)
+    final_speed_l = BASE_SPEED + correction_l 
+    
+    # 오른쪽 모터: 보정값이 음수(우회전상태)면 더 빠르게 -> 빼기(-)를 하면 됨 (음수를 빼므로 가속)
+    final_speed_r = BASE_SPEED - correction_r
     
     # 4. 모터 구동
-    left_motor.run(left_speed)
-    right_motor.run(right_speed)
+    left_motor.run(final_speed_l)
+    right_motor.run(final_speed_r)
     
-    # 5. 연산 주기 조절 (너무 빠르면 센서 노이즈에 민감해짐)
     wait(10)

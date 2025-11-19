@@ -17,6 +17,7 @@ CLOSE_POS = 60
 ev3 = EV3Brick()
 
 # 포트 설정 (D: 모터, S1: 터치센서)
+# leveling.py와 동일한 방식으로 초기화
 motor_cup = Motor(Port.D)
 ultrasonic_sensor = UltrasonicSensor(Port.S1)
 #기준 거리
@@ -39,13 +40,15 @@ def initialize_arm():
 # 초기화 실행
 initialize_arm()
 
+
+
 while True:
     # 1. 컵 대기 
     while not ultrasonic_sensor.distance() <= DISTANCE_THRESHOLD:
         wait(100) # 0.1초 간격 확인
 
     # 2. 컵 감지됨 -> 팔 닫기
-    motor_cup.run_target(GRAB_SPEED, CLOSE_POS, then=Stop.HOLD, wait=True)
+    motor_cup.run_target(GRAB_SPEED, CLOSE_POS, then=Stop.HOLD, wait=False)
 
     # 3. 컵 제거 대기 
     while ultrasonic_sensor.distance() <= DISTANCE_THRESHOLD:

@@ -70,9 +70,8 @@ left_motor = Motor(LEFT_MOTOR_PORT)
 right_motor = Motor(RIGHT_MOTOR_PORT)
 
 # 자이로 센서 2개 초기화
-# 주의: 자이로 센서는 초기화 시 절대 움직이면 안 됩니다.
 ev3.speaker.beep() 
-print("Calibrating Gyros... Do not move!")
+print("Calibrating Gyros... Do not move")
 
 left_gyro = GyroSensor(LEFT_GYRO_PORT)
 right_gyro = GyroSensor(RIGHT_GYRO_PORT)
@@ -90,21 +89,19 @@ pid_right = PIDController(KP, KI, KD, TARGET_ANGLE)
 ev3.speaker.beep()
 print("Go!")
 
-# ==========================================
-# 4. 메인 루프 (듀얼 센서 피드백)
-# ==========================================
+# 메인 루프
 while True:
-    # 1. 각 센서값 읽기
-    # 왼쪽 센서와 오른쪽 센서가 읽는 값이 미세하게 다를 수 있습니다.
+    # 각 센서값 읽기
+    # 왼쪽 센서와 오른쪽 센서
     angle_l = left_gyro.angle()
     angle_r = right_gyro.angle()
     
-    # 2. 각각 PID 계산
-    # PID 출력값은 "목표 각도로 가기 위해 필요한 힘의 보정치"입니다.
+    # 각각 PID 계산
+    # PID 출력값 = 목표 각도로 가기 위해 필요한 힘의 보정치
     correction_l = pid_left.compute(angle_l)
     correction_r = pid_right.compute(angle_r)
     
-    # 3. 모터 출력 적용 (로직 중요!)
+    # 모터 출력 적용
     # 시나리오: 로봇이 오른쪽으로 틀어짐 (Angle > 0)
     # -> 왼쪽 모터는 느려져야 하고 (또는 뒤로), 오른쪽 모터는 빨라져야(앞으로) 함
     

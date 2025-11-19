@@ -3,20 +3,25 @@ from pybricks.ev3devices import Motor, ColorSensor, GyroSensor
 from pybricks.parameters import Port, Stop, Direction, Color
 from pybricks.tools import wait, StopWatch
 
+# 설정 (하드웨어 포트 확인)
+# 모터 포트
 LEFT_MOTOR_PORT = Port.A
 RIGHT_MOTOR_PORT = Port.B
-LEFT_PORT = Port.S4
-RIGHT_PORT = Port.S3
-# 목표 값 설정
-TARGET_LIGHT_INTENSITY = 50  # 라인 트레이싱 목표 반사광 값
-BASE_SPEED = 150             # 로봇의 기본 주행 속도
+
+# 자이로 센서 포트 (2개 사용)
+LEFT_GYRO_PORT = Port.S3
+RIGHT_GYRO_PORT = Port.S4
+
+# 기본 속도 및 목표 각도
+BASE_SPEED = 200     # 기본 주행 속도
+TARGET_ANGLE = 0     # 목표 각도 (0도 유지 = 직진)
 
 # PID 게인 값 설정
 KP = 1.2   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
 KI = 0.001 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
 KD = 0.5   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
 
-# PID 클래스 정의
+# PID 클래스 
 class PIDController:
     def __init__(self, kp, ki, kd, target):
         self.kp = kp
@@ -58,21 +63,34 @@ class PIDController:
         output = p_term + i_term + d_term
         return output
 
-# 3. 초기화 (Initialization)
+# 초기화
 ev3 = EV3Brick()
 left_motor = Motor(LEFT_MOTOR_PORT)
 right_motor = Motor(RIGHT_MOTOR_PORT)
 
-line_sensor = ColorSensor(SENSOR_PORT)
+# 자이로 센서 2개 초기화
+# 주의: 자이로 센서는 초기화 시 절대 움직이면 안 됩니다.
+ev3.speaker.beep() 
+print("Calibrating Gyros... Do not move")
 
-# PID 컨트롤러 인스턴스 생성
-steering_pid = PIDController(KP, KI, KD, TARGET_LIGHT_INTENSITY)
+left_gyro = GyroSensor(LEFT_GYRO_PORT)
+right_gyro = GyroSensor(RIGHT_GYRO_PORT)
+
+wait(1000) # 안정화 대기
+
+# 각도 0점으로 리셋
+left_gyro.reset_angle(0)
+right_gyro.reset_angle(0)
+
+# 각각의 PID 생성
+pid_left = PIDController(KP, KI, KD, TARGET_ANGLE)
+pid_right = PIDController(KP, KI, KD, TARGET_ANGLE)
 
 # 시작 알림
 ev3.speaker.beep()
 print("PID Control Started...")
 
-# 4. 메인 루프 (Main Loop)
+# 4. 메인 루프 (듀얼 센서 피드백)
 while True:
     # 1. 센서 값 읽기 (반사광)
     current_light = line_sensor.reflection()

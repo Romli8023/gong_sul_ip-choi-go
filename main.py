@@ -3,7 +3,7 @@
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor, GyroSensor
 from pybricks.parameters import Port,Stop
-from pybricks.tools import wait
+
 
 # ====== CONSTANTS ======
 MAX_INTEGRAL = 100
@@ -55,6 +55,8 @@ def init_gyro_and_bias(gyro, name):
 
     ev3.screen.clear()
     ev3.screen.print("Measuring", name)
+
+    bias = 0
     samples = 300
     total = 0
     for _ in range(samples):
@@ -101,9 +103,11 @@ while True:
 
     # ====== PID ROLL (Ox) ======
     P_r = Kp_R * error_roll
+
     integral_roll += error_roll
     integral_roll = max(min(integral_roll, MAX_INTEGRAL), -MAX_INTEGRAL)
     I_r = Ki_R * integral_roll
+
     D_r = Kd_R * (error_roll - prev_error_roll)
     prev_error_roll = error_roll
 
@@ -111,9 +115,11 @@ while True:
 
     # ====== PID PITCH (Oy) ======
     P_p = Kp_P * error_pitch
+
     integral_pitch += error_pitch
     integral_pitch = max(min(integral_pitch, MAX_INTEGRAL), -MAX_INTEGRAL)
     I_p = Ki_P * integral_pitch
+
     D_p = Kd_P * (error_pitch - prev_error_pitch)
     prev_error_pitch = error_pitch
 
@@ -125,9 +131,10 @@ while True:
 
     # ====== DEBUG ======
     ev3.screen.clear()
-    ev3.screen.print("ROLL out:",  int(output_roll))
-    ev3.screen.print("PITCH out:", int(output_pitch))
-    ev3.screen.print("R ang:", int(angle_roll))
-    ev3.screen.print("P ang:", int(angle_pitch))
+    ev3.screen.print("Rate roll:", int(rate_roll))
+    ev3.screen.print("Ang* roll:", int(angle_roll))
+    ev3.screen.print("Err:", int(error_roll))
+    ev3.screen.print("Out:", int(output_roll))
+    ev3.screen.print("Bias:", int(bias_roll))
 
     wait(LOOP_DT_MS)

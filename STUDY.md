@@ -39,10 +39,6 @@ $$\text{output}_i = K_i \times \text{integral}$$
 ### 2.3. D 제어 (Derivative, 미분)
 오차가 변화하는 속도를 감지하여 급격한 움직임에 제동을 건다. (브레이크 역할)
 
-$$\text{deviation} = \text{error} - \text{prev\error}$$
-$$\text{prev\error} = \text{error}$$
-$$\text{output}_d = K_d \times \text{deviation}$$
-
 * **작동 원리:** '오차가 얼마나 빠르게 변하고 있는가?'를 계산한다.
 * 로봇이 0도를 향해 너무 빠른 속도로 돌진하면 `deviation` 값이 매우 크게 측정된다.
 * $K_d$ 항은 이 '돌진하는 힘'에 반대되는 **제동력**을 발생시켜, 로봇이 목표 지점을 지나치기 전에 미리 속도를 줄이도록 만든다.

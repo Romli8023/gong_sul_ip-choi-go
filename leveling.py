@@ -8,12 +8,12 @@ from pybricks.tools import wait, StopWatch
 # 1. 설정 (하드웨어 포트 확인 필수)
 # ==========================================
 # 모터 포트
-LEFT_MOTOR_PORT = Port.B
-RIGHT_MOTOR_PORT = Port.C
+LEFT_MOTOR_PORT = Port.A
+RIGHT_MOTOR_PORT = Port.B
 
 # 자이로 센서 포트 (2개 사용)
-LEFT_GYRO_PORT = Port.S1
-RIGHT_GYRO_PORT = Port.S2
+LEFT_GYRO_PORT = Port.S3
+RIGHT_GYRO_PORT = Port.S4
 
 # 기본 속도 및 목표 각도
 BASE_SPEED = 200     # 기본 주행 속도
@@ -124,4 +124,6 @@ while True:
     left_motor.run(final_speed_l)
     right_motor.run(final_speed_r)
     
+    print("L_Ang:", angle_l, "R_Ang:", angle_r, "L_Pow:", final_speed_l)
+
     wait(10)

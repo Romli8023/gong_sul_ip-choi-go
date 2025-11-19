@@ -1,3 +1,4 @@
+#!/usr/bin/env pybricks-micropython
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor, ColorSensor, GyroSensor
 from pybricks.parameters import Port, Stop, Direction, Color
@@ -13,14 +14,17 @@ LEFT_GYRO_PORT = Port.S3
 RIGHT_GYRO_PORT = Port.S4
 
 # 기본 속도 및 목표 각도
-BASE_SPEED = 200     # 기본 주행 속도
+BASE_SPEED = 0     # 기본 주행 속도
 TARGET_ANGLE = 0     # 목표 각도 (0도 유지 = 직진)
 
 # PID 게인 값 설정
-KP = 1.2   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
-KI = 0.001 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
-KD = 0.5   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
+KP_L = 1.2   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
+KI_L = 0.04 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
+KD_L = 0.5   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
 
+KP_R = 0.8   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
+KI_R = 0.5 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
+KD_R = 0.6   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
 # PID 클래스 
 class PIDController:
     def __init__(self, kp, ki, kd, target):
@@ -82,8 +86,8 @@ left_gyro.reset_angle(0)
 right_gyro.reset_angle(0)
 
 # 각각의 PID 생성
-pid_left = PIDController(KP, KI, KD, TARGET_ANGLE)
-pid_right = PIDController(KP, KI, KD, TARGET_ANGLE)
+pid_left = PIDController(KP_L, KI_L, KD_L, TARGET_ANGLE)
+pid_right = PIDController(KP_R, KI_R, KD_R, TARGET_ANGLE)
 
 # 시작 알림
 ev3.speaker.beep()
@@ -126,6 +130,5 @@ while True:
     left_motor.run(final_speed_l)
     right_motor.run(final_speed_r)
     
-    print("L_Ang:", angle_l, "R_Ang:", angle_r, "L_Pow:", final_speed_l)
-    
-    wait(10)
+    print("L_Ang:", angle_l, "R_Ang:", angle_r, "L_Pow:", final_speed_l, "R_Pow:", final_speed_r)
+    wait(100)

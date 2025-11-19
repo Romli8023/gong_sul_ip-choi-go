@@ -1,7 +1,7 @@
 #!/usr/bin/env pybricks-micropython
 
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor, TouchSensor
+from pybricks.ev3devices import Motor, UltrasonicSensor
 from pybricks.parameters import Port, Stop
 from pybricks.tools import wait
 
@@ -17,9 +17,10 @@ CLOSE_POS = 60
 ev3 = EV3Brick()
 
 # 포트 설정 (D: 모터, S1: 터치센서)
-# leveling.py와 동일한 방식으로 초기화
 motor_cup = Motor(Port.D)
-cup_sensor = TouchSensor(Port.S1)
+ultrasonic_sensor = UltrasonicSensor(Port.S1)
+#기준 거리
+DISTANCE_THRESHOLD = 30
 
 def initialize_arm():
     """시작 시 팔을 열린 위치로 초기화"""
@@ -39,15 +40,15 @@ def initialize_arm():
 initialize_arm()
 
 while True:
-    # 1. 컵 대기 (터치 센서가 눌릴 때까지)
-    while not cup_sensor.pressed():
+    # 1. 컵 대기 
+    while not ultrasonic_sensor.distance() <= DISTANCE_THRESHOLD:
         wait(100) # 0.1초 간격 확인
 
     # 2. 컵 감지됨 -> 팔 닫기
     motor_cup.run_target(GRAB_SPEED, CLOSE_POS, then=Stop.HOLD, wait=True)
 
-    # 3. 컵 제거 대기 (터치 센서가 떨어질 때까지)
-    while cup_sensor.pressed():
+    # 3. 컵 제거 대기 
+    while ultrasonic_sensor.distance() <= DISTANCE_THRESHOLD:
         wait(100)
 
     # 4. 컵 제거됨 -> 팔 열기

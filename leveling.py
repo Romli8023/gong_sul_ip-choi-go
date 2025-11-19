@@ -126,4 +126,6 @@ while True:
     left_motor.run(final_speed_l)
     right_motor.run(final_speed_r)
     
+    print("L_Ang:", angle_l, "R_Ang:", angle_r, "L_Pow:", final_speed_l)
+    
     wait(10)

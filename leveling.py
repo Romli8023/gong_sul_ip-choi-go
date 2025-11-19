@@ -4,7 +4,9 @@ from pybricks.ev3devices import Motor, GyroSensor
 from pybricks.parameters import Port, Direction, Stop
 from pybricks.tools import wait, StopWatch
 
-# 설정 (하드웨어 포트 확인)
+# ==========================================
+# 1. 설정 (하드웨어 포트 확인 필수)
+# ==========================================
 # 모터 포트
 LEFT_MOTOR_PORT = Port.B
 RIGHT_MOTOR_PORT = Port.C
@@ -22,7 +24,9 @@ KP = 2.0
 KI = 0.0
 KD = 1.0
 
-# PID 클래스 
+# ==========================================
+# 2. PID 클래스 (재사용)
+# ==========================================
 class PIDController:
     def __init__(self, kp, ki, kd, target):
         self.kp = kp
@@ -56,7 +60,9 @@ class PIDController:
         
         return p_term + i_term + d_term
 
-# 초기화
+# ==========================================
+# 3. 초기화
+# ==========================================
 ev3 = EV3Brick()
 
 # 모터 초기화
@@ -66,7 +72,7 @@ right_motor = Motor(RIGHT_MOTOR_PORT)
 # 자이로 센서 2개 초기화
 # 주의: 자이로 센서는 초기화 시 절대 움직이면 안 됩니다.
 ev3.speaker.beep() 
-print("Calibrating Gyros... Do not move")
+print("Calibrating Gyros... Do not move!")
 
 left_gyro = GyroSensor(LEFT_GYRO_PORT)
 right_gyro = GyroSensor(RIGHT_GYRO_PORT)
@@ -84,7 +90,9 @@ pid_right = PIDController(KP, KI, KD, TARGET_ANGLE)
 ev3.speaker.beep()
 print("Go!")
 
+# ==========================================
 # 4. 메인 루프 (듀얼 센서 피드백)
+# ==========================================
 while True:
     # 1. 각 센서값 읽기
     # 왼쪽 센서와 오른쪽 센서가 읽는 값이 미세하게 다를 수 있습니다.

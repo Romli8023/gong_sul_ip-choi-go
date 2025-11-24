@@ -121,10 +121,10 @@ while True:
     #  오른쪽으로 틀어지면(current > 0), error는 음수, correction도 음수가 나옴)
     
     # 왼쪽 모터: 보정값이 음수(우회전상태)면 더 느리게 -> 더하기(+)를 하면 됨 (음수를 더하므로 감속)
-    final_speed_l = BASE_SPEED + correction_l 
+    final_speed_l = (BASE_SPEED + correction_l)*394 / 385 
     
     # 오른쪽 모터: 보정값이 음수(우회전상태)면 더 빠르게 -> 빼기(-)를 하면 됨 (음수를 빼므로 가속)
-    final_speed_r = BASE_SPEED - correction_r
+    final_speed_r = (BASE_SPEED - correction_r)*394 / 394
     
     # 4. 모터 구동
     left_motor.run(final_speed_l)

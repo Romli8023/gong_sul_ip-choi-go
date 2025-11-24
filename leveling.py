@@ -24,6 +24,13 @@ KD_L = 0.5   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진
 KP_R = 0.8   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
 KI_R = 0.04 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
 KD_R = 1.5   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
+
+
+
+MAX_INTEGRAL = 100
+
+
+
 # PID 클래스 
 class PIDController:
     def __init__(self, kp, ki, kd, target):
@@ -53,6 +60,8 @@ class PIDController:
         
         # 3. 적분(I) 항
         self.integral += error * dt
+        if self.integral > MAX_INTEGRAL: self.integral = MAX_INTEGRAL
+        elif self.integral < -MAX_INTEGRAL: self.integral = -MAX_INTEGRAL
         i_term = self.integral * self.ki
         
         # 4. 미분(D) 항

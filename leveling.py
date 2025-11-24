@@ -109,14 +109,14 @@ while True:
     # 3. 모터 출력 적용
     
     # 왼쪽 모터
-    final_speed_l = correction_l 
+    final_speed_l = correction_l
     
     # 오른쪽 모터
     final_speed_r = correction_r
     
     # 4. 모터 구동
     left_motor.run(final_speed_l)
-    right_motor.run(final_speed_r)
+    right_motor.run(-final_speed_r)
     
     print("L_Ang:", angle_l, "R_Ang:", angle_r, "L_Pow:", final_speed_l, "R_Pow:", final_speed_r)
     wait(100)

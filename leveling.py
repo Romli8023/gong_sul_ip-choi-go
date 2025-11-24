@@ -1,132 +1,101 @@
 #!/usr/bin/env pybricks-micropython
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor, ColorSensor, GyroSensor
-from pybricks.parameters import Port, Stop, Direction, Color
+from pybricks.ev3devices import Motor, GyroSensor
+from pybricks.parameters import Port
 from pybricks.tools import wait, StopWatch
 
-# 설정 (하드웨어 포트 확인)
-# 모터 포트
+# 포트 설정
 LEFT_MOTOR_PORT = Port.A
 RIGHT_MOTOR_PORT = Port.B
-
-# 자이로 센서 포트 (2개 사용)
 LEFT_GYRO_PORT = Port.S3
 RIGHT_GYRO_PORT = Port.S4
 
+TARGET_ANGLE = 0 
 
-# PID 게인 값 설정
-KP_L = 1.0   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
-KI_L = 0.0 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
-KD_L = 0.1   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
+# PID 게인 (L: 강하게 / R: 부드럽게)
+KP_L, KI_L, KD_L = 1.0, 0.05, 2.0
+KP_R, KI_R, KD_R = 0.5, 0.0, 0.1
 
-KP_R = 0.5   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
-KI_R = 0.0 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
-KD_R = 0.1   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
+MAX_INTEGRAL = 100 
+DEADZONE = 2  # 오차 무시 범위 (±2도)
 
-
-
-MAX_INTEGRAL = 100
-
-
-
-# PID 클래스 
 class PIDController:
     def __init__(self, kp, ki, kd, target):
         self.kp = kp
         self.ki = ki
         self.kd = kd
         self.target = target
-        
         self.prev_error = 0
         self.integral = 0
-        self.watch = StopWatch() # 시간 측정을 위한 스톱워치
+        self.watch = StopWatch()
         self.watch.reset()
 
     def compute(self, current_value):
-        # dt (시간 변화량) 계산 - 초 단위
         dt = self.watch.time() / 1000.0 
         self.watch.reset()
-        
-        # dt가 너무 작으면(0이면) 계산 오류 방지
         if dt <= 0: dt = 0.001
 
-        DEADBAND = 0.5   # độ, tùy bạn chỉnh
-
         error = self.target - current_value
-        if -DEADBAND < error < DEADBAND:
+        
+        # 데드존: 오차가 작으면 0으로 처리 (떨림 방지)
+        if abs(error) <= DEADZONE:
             error = 0
-        # 2. 비례(P) 항
+            self.integral = 0
+        
+        # P항
         p_term = error * self.kp
         
-        # 3. 적분(I) 항
+        # I항 (와인드업 방지)
         self.integral += error * dt
         if self.integral > MAX_INTEGRAL: self.integral = MAX_INTEGRAL
         elif self.integral < -MAX_INTEGRAL: self.integral = -MAX_INTEGRAL
         i_term = self.integral * self.ki
         
-        # 4. 미분(D) 항
+        # D항
         derivative = (error - self.prev_error) / dt
         d_term = derivative * self.kd
         
-        # 5. 업데이트
         self.prev_error = error
         
-        # 6. 최종 출력 (Turn Value)
-        output = p_term + i_term + d_term
-        return output
+        return p_term + i_term + d_term
+
+def force_reset_gyro(gyro):
+    # 모드 변경을 통한 강제 초기화 (프리징 해결)
+    gyro.speed()
+    wait(100)
+    gyro.angle()
+    wait(100)
+    gyro.reset_angle(0)
+    wait(100)
+    
+    # 0점 확인, 실패 시 재귀 호출
+    if abs(gyro.angle()) > 0:
+        force_reset_gyro(gyro)
 
 # 초기화
 ev3 = EV3Brick()
 left_motor = Motor(LEFT_MOTOR_PORT)
 right_motor = Motor(RIGHT_MOTOR_PORT)
-
-# 자이로 센서 2개 초기화
-ev3.speaker.beep() 
-print("Calibrating Gyros... Do not move")
-
 left_gyro = GyroSensor(LEFT_GYRO_PORT)
 right_gyro = GyroSensor(RIGHT_GYRO_PORT)
 
-wait(1000)
-pitch_0 = left_gyro.angle()
-roll_0  = right_gyro.angle()
-
-# tạo 2 target riêng
-TARGET_PITCH = pitch_0
-TARGET_ROLL  = roll_0
-# 각각의 PID 생성
-pid_left = PIDController(KP_L, KI_L, KD_L, TARGET_PITCH)
-pid_right = PIDController(KP_R, KI_R, KD_R, TARGET_ROLL)
-
-# 시작 알림
 ev3.speaker.beep()
-print("PID Control Started...")
 
-# ==========================================
-# 4. 메인 루프 (듀얼 센서 피드백)
-# ==========================================
+# 자이로 강제 0점 설정
+force_reset_gyro(left_gyro)
+force_reset_gyro(right_gyro)
+
+ev3.speaker.beep()
+
+pid_left = PIDController(KP_L, KI_L, KD_L, TARGET_ANGLE)
+pid_right = PIDController(KP_R, KI_R, KD_R, TARGET_ANGLE)
+
+# 메인 루프
 while True:
-    # 1. 각 센서값 읽기
-    # 왼쪽 센서와 오른쪽 센서가 읽는 값이 미세하게 다를 수 있습니다.
-    angle_l = left_gyro.angle()
-    angle_r = right_gyro.angle()
+    power_l = pid_left.compute(left_gyro.angle())
+    power_r = pid_right.compute(right_gyro.angle())
     
-    # 2. 각각 PID 계산
-    # PID 출력값은 "목표 각도로 가기 위해 필요한 힘의 보정치"입니다.
-    correction_l = pid_left.compute(angle_l)
-    correction_r = pid_right.compute(angle_r)
+    left_motor.run(power_l)
+    right_motor.run(power_r)
     
-    # 3. 모터 출력 적용
-    
-    # 왼쪽 모터
-    final_speed_l = correction_l
-    
-    # 오른쪽 모터
-    final_speed_r = correction_r
-    
-    # 4. 모터 구동
-    left_motor.run(final_speed_l)
-    right_motor.run(-final_speed_r)
-    
-    print("L_Ang:", angle_l, "R_Ang:", angle_r, "L_Pow:", final_speed_l, "R_Pow:", final_speed_r)
-    wait(100)
+    wait(10)

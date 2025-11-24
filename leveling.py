@@ -13,17 +13,15 @@ RIGHT_MOTOR_PORT = Port.B
 LEFT_GYRO_PORT = Port.S3
 RIGHT_GYRO_PORT = Port.S4
 
-# 기본 속도 및 목표 각도
-TARGET_ANGLE = 0     # 목표 각도 (0도 유지 = 직진)
 
 # PID 게인 값 설정
-KP_L = 1.5   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
-KI_L = 0.04 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
-KD_L = 0.5   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
+KP_L = 1.0   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
+KI_L = 0.0 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
+KD_L = 0.1   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
 
-KP_R = 0.8   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
-KI_R = 0.1 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
-KD_R = 1.5   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
+KP_R = 0.5   # 비례 (P): 오차에 비례하여 반응 (반응 속도)
+KI_R = 0.0 # 적분 (I): 누적 오차 보정 (미세 오차 제거)
+KD_R = 0.1   # 미분 (D): 오차 변화율 예측 (급격한 변화 억제, 진동 방지)
 
 
 
@@ -52,9 +50,11 @@ class PIDController:
         # dt가 너무 작으면(0이면) 계산 오류 방지
         if dt <= 0: dt = 0.001
 
-        # 1. 오차(Error) 계산
+        DEADBAND = 0.5   # độ, tùy bạn chỉnh
+
         error = self.target - current_value
-        
+        if -DEADBAND < error < DEADBAND:
+            error = 0
         # 2. 비례(P) 항
         p_term = error * self.kp
         
@@ -87,15 +87,16 @@ print("Calibrating Gyros... Do not move")
 left_gyro = GyroSensor(LEFT_GYRO_PORT)
 right_gyro = GyroSensor(RIGHT_GYRO_PORT)
 
-wait(1000) # 안정화 대기
+wait(1000)
+pitch_0 = left_gyro.angle()
+roll_0  = right_gyro.angle()
 
-# 각도 0점으로 리셋
-left_gyro.reset_angle(0)
-right_gyro.reset_angle(0)
-
+# tạo 2 target riêng
+TARGET_PITCH = pitch_0
+TARGET_ROLL  = roll_0
 # 각각의 PID 생성
-pid_left = PIDController(KP_L, KI_L, KD_L, TARGET_ANGLE)
-pid_right = PIDController(KP_R, KI_R, KD_R, TARGET_ANGLE)
+pid_left = PIDController(KP_L, KI_L, KD_L, TARGET_PITCH)
+pid_right = PIDController(KP_R, KI_R, KD_R, TARGET_ROLL)
 
 # 시작 알림
 ev3.speaker.beep()

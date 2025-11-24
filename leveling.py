@@ -14,7 +14,6 @@ LEFT_GYRO_PORT = Port.S3
 RIGHT_GYRO_PORT = Port.S4
 
 # 기본 속도 및 목표 각도
-BASE_SPEED = 0     # 기본 주행 속도
 TARGET_ANGLE = 0     # 목표 각도 (0도 유지 = 직진)
 
 # PID 게인 값 설정
@@ -107,12 +106,10 @@ while True:
     correction_l = pid_left.compute(angle_l)
     correction_r = pid_right.compute(angle_r)
     
-    # 3. 모터 출력 적용 (로직 중요!)
-    # 시나리오: 로봇이 오른쪽으로 틀어짐 (Angle > 0)
-    # -> 왼쪽 모터는 느려져야 하고 (또는 뒤로), 오른쪽 모터는 빨라져야(앞으로) 함
+    # 3. 모터 출력 적용
     
-    # correction 값이 양수(+)일 때: "목표보다 각도가 작다(왼쪽을 보고 있다)" -> 오른쪽으로 돌려야 함
-    # -> 왼쪽 모터 속도 증가, 오른쪽 모터 속도 감소
+    # 왼쪽 모터
+    final_speed_l = correction_l 
     
     # correction 값이 음수(-)일 때: "목표보다 각도가 크다(오른쪽을 보고 있다)" -> 왼쪽으로 돌려야 함
     # -> 왼쪽 모터 속도 감소, 오른쪽 모터 속도 증가

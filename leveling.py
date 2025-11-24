@@ -92,10 +92,16 @@ pid_right = PIDController(KP_R, KI_R, KD_R, TARGET_ANGLE)
 
 # 메인 루프
 while True:
+    angle_l = left_gyro.angle()
+    angle_r = right_gyro.angle()
+    
     power_l = pid_left.compute(left_gyro.angle())
     power_r = pid_right.compute(right_gyro.angle())
     
     left_motor.run(power_l)
     right_motor.run(power_r)
     
+    # 디버깅 출력 (각도 | 파워)
+    print("L:{}|{}  R:{}|{}".format(angle_l, int(power_l), angle_r, int(power_r)))
+
     wait(10)

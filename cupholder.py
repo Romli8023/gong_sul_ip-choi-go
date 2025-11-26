@@ -1,7 +1,7 @@
 #!/usr/bin/env pybricks-micropython
 
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor, UltrasonicSensor
+from pybricks.ev3devices import Motor, TouchSensor  # UltrasonicSensor 대신 TouchSensor 사용
 from pybricks.parameters import Port, Stop
 from pybricks.tools import wait
 
@@ -10,20 +10,22 @@ GRAB_SPEED = 150
 OPEN_POS = 0
 CLOSE_POS = 100 
 
-# 감지 거리 기준 (mm)
-# 50mm = 5cm 이내 감지 시 잡음
-DETECT_DIST = 50
-
 # ==== 초기화 ====
 ev3 = EV3Brick()
 motor_cup = Motor(Port.D)
-us_sensor = UltrasonicSensor(Port.S1)
+
+# [변경됨] 초음파 센서 -> 터치 센서 (S1 포트)
+touch_sensor = TouchSensor(Port.S1)
 
 def initialize_arm():
+    """시작 시 팔을 열린 위치로 초기화"""
     ev3.screen.clear()
     print("Initializing...")
+    
+    # 0점 조절 및 팔 열기
     motor_cup.reset_angle(0)
     motor_cup.run_target(GRAB_SPEED, OPEN_POS, then=Stop.HOLD, wait=True)
+    
     ev3.speaker.beep()
     print("Ready.")
 
@@ -32,47 +34,46 @@ def initialize_arm():
 initialize_arm()
 
 while True:
-    # 1. 물체 감지 대기
-    while True:
-        dist_mm = us_sensor.distance()
-        
-        ev3.screen.clear()
-        ev3.screen.print("Waiting...")
-        ev3.screen.print("Dist: {} cm".format(dist_mm / 10))
-        
-        # 기준 거리(5cm)보다 가까우면 잡기 시작
-        if dist_mm <= DETECT_DIST:
-            break
-        wait(100) 
+    # 1. 컵 감지 대기 (버튼이 눌릴 때까지 대기)
+    ev3.screen.clear()
+    ev3.screen.print("Waiting for Cup...")
+    
+    # 버튼이 눌리지 않은 상태(False)라면 계속 기다림
+    while not touch_sensor.pressed():
+        wait(10) # 짧게 대기하며 감시
+    
+    # ------------------------------------------------
+    # 이 아래로 내려왔다는 것은 버튼이 '눌렸다'는 뜻입니다.
+    # ------------------------------------------------
 
     # 2. 팔 닫기 (잡기)
     ev3.screen.print("Grabbing!")
-    # 컵 크기가 다양해도 멈추지 않도록 wait=False 유지
+    
+    # wait=False 중요: 컵 크기에 따라 모터가 끝까지 못 가더라도 
+    # 프로그램이 멈추지 않고 계속 버튼 상태를 확인할 수 있게 함
     motor_cup.run_target(GRAB_SPEED, CLOSE_POS, then=Stop.HOLD, wait=False)
 
-    # 3. 물체 제거 대기 (잡은 상태 유지)
-    while True:
-        dist_mm = us_sensor.distance()
+    # 3. 컵 제거 대기 (버튼이 떨어질 때까지 대기)
+    ev3.screen.print("Holding...")
+    
+    # 버튼이 눌려 있는 상태(True)라면 계속 잡고 있음
+    while touch_sensor.pressed():
+        wait(10)
         
-        ev3.screen.clear()
-        ev3.screen.print("Holding...")
-        ev3.screen.print("Dist: {} cm".format(dist_mm / 10))
-        
-        # 물체가 멀어지면 (감지거리 + 3cm = 8cm 이상) 루프 탈출
-        if dist_mm > (DETECT_DIST + 30):
-            break
-        wait(100)
+    # ------------------------------------------------
+    # 이 아래로 내려왔다는 것은 버튼이 '떼어졌다'는 뜻입니다.
+    # ------------------------------------------------
 
     # 4. 팔 열기
     ev3.screen.print("Released.")
     
-    # [안전 장치] 꽉 쥐고 있던 모터 힘 풀기 (부드러운 동작을 위해 유지)
+    # [안전 장치] 꽉 쥐고 있던 힘 풀기
     motor_cup.stop()
-    wait(100) 
+    wait(50) 
 
     # 팔을 활짝 엽니다.
     motor_cup.run_target(GRAB_SPEED, OPEN_POS, then=Stop.HOLD, wait=True)
-        
+    
     ev3.screen.print("Ready Next")
-    # 너무 빨리 재작동해서 오동작하는 것을 막기 위해 0.5초만 대기하고 바로 감시 시작
+    # 너무 빠른 재동작 방지 (0.5초 대기)
     wait(500)

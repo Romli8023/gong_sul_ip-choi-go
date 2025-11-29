@@ -13,11 +13,11 @@ RIGHT_GYRO_PORT = Port.S4
 TARGET_ANGLE = 0 
 
 # PID 게인 (L: 강하게 / R: 부드럽게)
-KP_L, KI_L, KD_L = 1.0, 0.05, 2.0
-KP_R, KI_R, KD_R = 0.5, 0.0, 0.1
+KP_L, KI_L, KD_L = 2.2, 0.05, 3.0
+KP_R, KI_R, KD_R = 1.8, 0.02, 2.0
 
 MAX_INTEGRAL = 100 
-DEADZONE = 2  # 오차 무시 범위 (±2도)
+DEADZONE = 8  # 오차 무시 범위 (±2도)
 
 class PIDController:
     def __init__(self, kp, ki, kd, target):
@@ -92,10 +92,16 @@ pid_right = PIDController(KP_R, KI_R, KD_R, TARGET_ANGLE)
 
 # 메인 루프
 while True:
+    angle_l = left_gyro.angle()
+    angle_r = right_gyro.angle()
+    
     power_l = pid_left.compute(left_gyro.angle())
     power_r = pid_right.compute(right_gyro.angle())
     
-    left_motor.run(power_l)
-    right_motor.run(power_r)
+    left_motor.run(-power_l)
+    right_motor.run(-power_r)
     
+    # 디버깅 출력 (각도 | 파워)
+    print("L:{}|{}  R:{}|{}".format(angle_l, int(power_l), angle_r, int(power_r)))
+
     wait(10)

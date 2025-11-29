@@ -5,16 +5,16 @@ from pybricks.parameters import Port
 from pybricks.tools import wait, StopWatch
 
 # 포트 설정
-LEFT_MOTOR_PORT = Port.A
-RIGHT_MOTOR_PORT = Port.B
-LEFT_GYRO_PORT = Port.S3
-RIGHT_GYRO_PORT = Port.S4
+PITCH_MOTOR_PORT = Port.A
+ROLL_MOTOR_PORT = Port.B
+PITCH_GYRO_PORT = Port.S3
+ROLL_GYRO_PORT = Port.S4
 
 TARGET_ANGLE = 0 
 
 # PID 게인 (L: 강하게 / R: 부드럽게)
-KP_L, KI_L, KD_L = 1.5, 0.05, 2.0
-KP_R, KI_R, KD_R = 1.0, 0.0, 0.1
+KP_P, KI_P, KD_P = 2.2, 0.05, 3.0
+KP_R, KI_R, KD_R = 1.8, 0.02, 2.0
 
 MAX_INTEGRAL = 100 
 DEADZONE = 8  # 오차 무시 범위 (±2도)
@@ -74,34 +74,34 @@ def force_reset_gyro(gyro):
 
 # 초기화
 ev3 = EV3Brick()
-left_motor = Motor(LEFT_MOTOR_PORT)
-right_motor = Motor(RIGHT_MOTOR_PORT)
-left_gyro = GyroSensor(LEFT_GYRO_PORT)
-right_gyro = GyroSensor(RIGHT_GYRO_PORT)
+pitch_motor = Motor(PITCH_MOTOR_PORT)
+roll_motor = Motor(ROLL_MOTOR_PORT)
+pitch_gyro = GyroSensor(PITCH_GYRO_PORT)
+roll_gyro = GyroSensor(ROLL_GYRO_PORT)
 
 ev3.speaker.beep()
 
 # 자이로 강제 0점 설정
-force_reset_gyro(left_gyro)
-force_reset_gyro(right_gyro)
+force_reset_gyro(pitch_gyro)
+force_reset_gyro(roll_gyro)
 
 ev3.speaker.beep()
 
-pid_left = PIDController(KP_L, KI_L, KD_L, TARGET_ANGLE)
-pid_right = PIDController(KP_R, KI_R, KD_R, TARGET_ANGLE)
+pid_pitch = PIDController(KP_P, KI_P, KD_P, TARGET_ANGLE)
+pid_roll = PIDController(KP_R, KI_R, KD_R, TARGET_ANGLE)
 
 # 메인 루프
 while True:
-    angle_l = left_gyro.angle()
-    angle_r = right_gyro.angle()
+    angle_p = pitch_gyro.angle()
+    angle_r = roll_gyro.angle()
     
-    power_l = pid_left.compute(left_gyro.angle())
-    power_r = pid_right.compute(right_gyro.angle())
+    power_p = pid_pitch.compute(pitch_gyro.angle())
+    power_r = pid_roll.compute(roll_gyro.angle())
     
-    left_motor.run(power_l)
-    right_motor.run(-power_r)
+    pitch_motor.run(-power_p)
+    roll_motor.run(-power_r)
     
     # 디버깅 출력 (각도 | 파워)
-    print("L:{}|{}  R:{}|{}".format(angle_l, int(power_l), angle_r, int(power_r)))
+    print("P:{}|{}  R:{}|{}".format(angle_p, int(power_p), angle_r, int(power_r)))
 
     wait(10)
